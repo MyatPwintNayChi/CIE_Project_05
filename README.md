@@ -113,7 +113,7 @@ The Route 53 Geolocation routing policy was validated using browser-based locati
    * **URL:** `https://dashboard.mpnc.dev`
    * **Result:** Directed to the **Singapore Region** stack.
   
-     ![Asia-region](Sg-region-result.png)
+     ![Asia-region](Singapore-region.png)
 
 ---
 
@@ -124,3 +124,4 @@ The Route 53 Geolocation routing policy was validated using browser-based locati
   * Public ALBs accept traffic on `HTTP (80)` and `HTTPS (443)` from `0.0.0.0/0`.
   * EC2 instance security groups only accept traffic originating from their designated ALB security groups.
 * **HTTPS Encryption:** End-to-end transport encryption terminated at the Application Load Balancer via ACM SSL Certificates.
+ 
