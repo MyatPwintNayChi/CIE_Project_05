@@ -19,7 +19,7 @@ The system is deployed across two primary AWS Regions:
 
 * **Domain Registrar:** GoDaddy (`mpnc.dev`)
 * **DNS Provider:** AWS Route 53 Hosted Zone
-* **SSL/TLS Certificates:** Issued via AWS Certificate Manager (ACM) with wildcard support (`*.mpnc.dev`) and validated via DNS CNAME records.
+* **SSL/TLS Certificates:** Requested public SSL/TLS certificates via AWS Certificate Manager (ACM) for `*.mpnc.dev` and `mpnc.dev` in both regions. Then added CNAME validation records in Route 53 to validate certificate ownership.  
 
 ### Route 53 Geolocation Policy Rules
 
@@ -27,7 +27,11 @@ The system is deployed across two primary AWS Regions:
 | :--- | :--- | :--- | :--- |
 | `dashboard.mpnc.dev` | **Geolocation** | Singapore Dashboard ALB | **Asia** |
 | `dashboard.mpnc.dev` | **Geolocation** | London Dashboard ALB | **Europe** |
-| `dashboard.mpnc.dev` | **Geolocation** | London Dashboard ALB | **Default** *(Catch-all for other locations)* |
+| `dashboard.mpnc.dev` | **Geolocation** | Singapore Dashboard ALB | **Default** *(Catch-all for other locations)* |
+
+![Domain_image](domain.png)
+![Certificate1](ACM-1.png)
+![Certificate2](ACM-2.png)
 
 ---
 
@@ -50,28 +54,46 @@ Both application services are containerized, packaged into Docker images, and ho
   ADD . /app
   EXPOSE 9002
   ENV PORT 9002
-  ENV COUNTING_SERVICE_URL http://counting.service.consul:9001
+  ENV COUNTING_SERVICE_URL http://counting.myat.io
   CMD ["./dashboard-service"]
   ```
 
 * **Build and Push Commands:**
   ```bash
   # Build application images
-  docker build -t your-dockerhub-username/dashboard-service:latest -f Dockerfile.dashboard .
-  docker build -t your-dockerhub-username/counting-service:latest -f Dockerfile.counting .
+  docker buildx build --platform linux/amd64 -t myatpwintnaychi/dashboard-service:latest .
+  docker buildx build --platform linux/amd64 -t myatpwintnaychi/counting-service:latest .
+  
 
   # Login and push to Docker Hub
   docker login
-  docker push your-dockerhub-username/dashboard-service:latest
-  docker push your-dockerhub-username/counting-service:latest
+  docker push myatpwintnaychi/dashboard-service:latest
+  docker push myatpwintnaychi/counting-service:latest
   ```
 
 ### 3. Application Deployment
 On the EC2 instances inside private subnets, Docker pulls and runs the containers:
 ```bash
 # Pull and start the Dashboard Container
-docker run -d -p 9002:9002 --name dashboard your-dockerhub-username/dashboard-service:latest
+docker run -d \
+ --name dashboard \
+  -p 9002:9002 \
+  -e PORT=9002 \
+  -e COUNTING_SERVICE_URL="http://counting.myat.io" \
+  myatpwintnaychi/dashboard-service:latest
+
+# Pull and start the Counting Container
+docker run -d \
+  --name counting \
+  --restart always \
+  -p 8080:8080 \
+  -e PORT=8080 \
+  myatpwintnaychi/counting-service:latest
+
 ```
+
+![Docker-1](Docker-1.png)
+![Docker-2](Docker-2.png)
 
 ---
 
@@ -83,11 +105,15 @@ The Route 53 Geolocation routing policy was validated using browser-based locati
    * **Location:** Connected via UK / European proxy.
    * **URL:** `https://dashboard.mpnc.dev`
    * **Result:** Successfully directed to the **London Region** stack, rendering `Dashboard From London Region`.
+  
+     ![Europe-region](London-region-result.png)
 
 2. **Asian Access Test:**
    * **Location:** Connected via Asian proxy / native location.
    * **URL:** `https://dashboard.mpnc.dev`
    * **Result:** Directed to the **Singapore Region** stack.
+  
+     ![Asia-region](Sg-region-result.png)
 
 ---
 
